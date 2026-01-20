@@ -10,67 +10,136 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 import pickle
-import numpy as np
 
-# -------------------------------
-# Load model and feature list
-# -------------------------------
-with open("logistic_model.pkl", "rb") as file:
-    model = pickle.load(file)
+# -----------------------------------
+# Load trained model
+# -----------------------------------
+with open("logistic_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-with open("feature_columns.pkl", "rb") as file:
-    feature_columns = pickle.load(file)
-
-# -------------------------------
-# Streamlit Page Config
-# -------------------------------
+# -----------------------------------
+# Streamlit Page Configuration
+# -----------------------------------
 st.set_page_config(
-    page_title="Customer Conversion Prediction",
+    page_title="Customer Purchase Prediction",
     layout="wide"
 )
 
-st.title("📊 Customer Purchase Prediction Dashboard")
+st.title("🛒 Customer Purchase Prediction Dashboard")
 st.markdown(
     "This application predicts the **probability of purchase** "
-    "based on user behavioral and session attributes."
+    "based on user session and behavioral characteristics."
 )
 
-# -------------------------------
-# Sidebar Inputs
-# -------------------------------
-st.sidebar.header("User Input Features")
+# -----------------------------------
+# Function to convert original inputs
+# into model-ready features
+# -----------------------------------
+def prepare_model_input(user_input):
+    data = {}
 
-user_input = {}
+    # Numerical features
+    data["Administrative"] = user_input["Administrative"]
+    data["Administrative_Duration"] = user_input["Administrative_Duration"]
+    data["Informational"] = user_input["Informational"]
+    data["Informational_Duration"] = user_input["Informational_Duration"]
+    data["ProductRelated"] = user_input["ProductRelated"]
+    data["ProductRelated_Duration"] = user_input["ProductRelated_Duration"]
+    data["BounceRates"] = user_input["BounceRates"]
+    data["ExitRates"] = user_input["ExitRates"]
+    data["PageValues"] = user_input["PageValues"]
+    data["SpecialDay"] = user_input["SpecialDay"]
+    data["Weekend"] = user_input["Weekend"]
 
-for feature in feature_columns:
-    user_input[feature] = st.sidebar.number_input(
-        label=feature,
-        value=0.0,
-        step=0.1
+    # VisitorType encoding
+    data["VisitorType_Returning_Visitor"] = (
+        1 if user_input["VisitorType"] == "Returning_Visitor" else 0
     )
 
-input_df = pd.DataFrame([user_input])
+    # Month one-hot encoding (must match training)
+    months = [
+        "Feb", "Mar", "May", "June", "July",
+        "Aug", "Sep", "Oct", "Nov", "Dec"
+    ]
 
-# -------------------------------
+    for m in months:
+        data[f"Month_{m}"] = 1 if user_input["Month"] == m else 0
+
+    return pd.DataFrame([data])
+
+# -----------------------------------
+# Sidebar – User Inputs (ORIGINAL VARIABLES)
+# -----------------------------------
+st.sidebar.header("📌 Session Details")
+
+user_input = {
+    "Administrative": st.sidebar.number_input(
+        "Administrative Pages", min_value=0, max_value=50, value=0
+    ),
+    "Administrative_Duration": st.sidebar.number_input(
+        "Administrative Duration", min_value=0.0, value=0.0
+    ),
+    "Informational": st.sidebar.number_input(
+        "Informational Pages", min_value=0, max_value=50, value=0
+    ),
+    "Informational_Duration": st.sidebar.number_input(
+        "Informational Duration", min_value=0.0, value=0.0
+    ),
+    "ProductRelated": st.sidebar.number_input(
+        "Product Related Pages", min_value=0, max_value=500, value=0
+    ),
+    "ProductRelated_Duration": st.sidebar.number_input(
+        "Product Related Duration", min_value=0.0, value=0.0
+    ),
+    "BounceRates": st.sidebar.slider(
+        "Bounce Rate", min_value=0.0, max_value=1.0, value=0.02
+    ),
+    "ExitRates": st.sidebar.slider(
+        "Exit Rate", min_value=0.0, max_value=1.0, value=0.04
+    ),
+    "PageValues": st.sidebar.number_input(
+        "Page Value", min_value=0.0, value=0.0
+    ),
+    "SpecialDay": st.sidebar.slider(
+        "Special Day", min_value=0.0, max_value=1.0, value=0.0
+    ),
+    "Weekend": st.sidebar.selectbox(
+        "Weekend", options=[0, 1]
+    ),
+    "VisitorType": st.sidebar.selectbox(
+        "Visitor Type", options=["Returning_Visitor", "New_Visitor"]
+    ),
+    "Month": st.sidebar.selectbox(
+        "Month",
+        options=["Feb", "Mar", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    )
+}
+
+# -----------------------------------
+# Prepare model input
+# -----------------------------------
+input_df = prepare_model_input(user_input)
+
+# -----------------------------------
 # Prediction Section
-# -------------------------------
+# -----------------------------------
 st.subheader("🔮 Prediction Result")
 
 if st.button("Predict Purchase Probability"):
-    prediction_prob = model.predict(input_df)[0]
+    probability = model.predict(input_df)[0]
 
     st.metric(
         label="Predicted Purchase Probability",
-        value=f"{prediction_prob:.2%}"
+        value=f"{probability:.2%}"
     )
 
-    if prediction_prob >= 0.5:
+    if probability >= 0.5:
         st.success("✅ High likelihood of purchase")
     else:
         st.warning("⚠️ Low likelihood of purchase")
 
-# -------------------------------
-# Show Input Data
-# -------------------------------
-with st.expander("📄 View Input Data"):
+# -----------------------------------
+# Show model-ready input (debug / academic)
+# -----------------------------------
+with st.expander("📄 View Model Input Features"):
     st.dataframe(input_df)
