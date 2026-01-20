@@ -58,22 +58,18 @@ def prepare_model_input(user_input):
         1 if user_input["VisitorType"] == "Returning_Visitor" else 0
     )
 
-    # Month one-hot encoding (must match training)
-    months = [
-        "Feb", "Mar", "May", "June", "July",
-        "Aug", "Sep", "Oct", "Nov", "Dec"
-    ]
+    # Month encoding (safe – only set selected month)
+    data[f"Month_{user_input['Month']}"] = 1
 
-    for m in months:
-        data[f"Month_{m}"] = 1 if user_input["Month"] == m else 0
-
+    # Create DataFrame
     df = pd.DataFrame([data])
 
     # Add constant (statsmodels requirement)
-    df.insert(0, "const", 1)
+    df["const"] = 1
 
-    # Align column order exactly as training
-    df = df[feature_columns]
+    # ✅ CRITICAL FIX:
+    # Align with training features, add missing columns as 0
+    df = df.reindex(columns=feature_columns, fill_value=0)
 
     return df
 
@@ -121,7 +117,8 @@ user_input = {
     ),
     "Month": st.sidebar.selectbox(
         "Month",
-        options=["Feb", "Mar", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        options=["Jan", "Feb", "Mar", "Apr", "May", "June",
+                 "July", "Aug", "Sep", "Oct", "Nov", "Dec"]
     )
 }
 
