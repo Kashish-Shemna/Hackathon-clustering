@@ -12,10 +12,13 @@ import pandas as pd
 import pickle
 
 # -----------------------------------
-# Load trained model
+# Load trained model and feature list
 # -----------------------------------
 with open("logistic_model.pkl", "rb") as f:
     model = pickle.load(f)
+
+with open("feature_columns.pkl", "rb") as f:
+    feature_columns = pickle.load(f)
 
 # -----------------------------------
 # Streamlit Page Configuration
@@ -32,8 +35,7 @@ st.markdown(
 )
 
 # -----------------------------------
-# Function to convert original inputs
-# into model-ready features
+# Function: Original Inputs → Model Inputs
 # -----------------------------------
 def prepare_model_input(user_input):
     data = {}
@@ -65,10 +67,18 @@ def prepare_model_input(user_input):
     for m in months:
         data[f"Month_{m}"] = 1 if user_input["Month"] == m else 0
 
-    return pd.DataFrame([data])
+    df = pd.DataFrame([data])
+
+    # Add constant (statsmodels requirement)
+    df.insert(0, "const", 1)
+
+    # Align column order exactly as training
+    df = df[feature_columns]
+
+    return df
 
 # -----------------------------------
-# Sidebar – User Inputs (ORIGINAL VARIABLES)
+# Sidebar – User Inputs (Business Variables)
 # -----------------------------------
 st.sidebar.header("📌 Session Details")
 
@@ -116,7 +126,7 @@ user_input = {
 }
 
 # -----------------------------------
-# Prepare model input
+# Prepare input for model
 # -----------------------------------
 input_df = prepare_model_input(user_input)
 
@@ -139,7 +149,7 @@ if st.button("Predict Purchase Probability"):
         st.warning("⚠️ Low likelihood of purchase")
 
 # -----------------------------------
-# Show model-ready input (debug / academic)
+# Debug / Academic View
 # -----------------------------------
 with st.expander("📄 View Model Input Features"):
     st.dataframe(input_df)
